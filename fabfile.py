@@ -1,10 +1,9 @@
-from fabric.api import *
 from fabric.contrib.files import *
 import os
+import time
 from ConfigParser import SafeConfigParser
 parser = SafeConfigParser()
 parser.read(os.path.join(os.path.dirname(__file__), 'config.ini'))
-import time
 
 # Configure server admin login credentials
 if parser.get('production', 'USE_PASSWORD'):
@@ -12,10 +11,11 @@ if parser.get('production', 'USE_PASSWORD'):
 else:
     env.key_filename = parser.get('production', 'PUBLIC_KEY')
 
+
 # Deploy production server
 @hosts(parser.get('production', 'USERNAME') + '@' + parser.get('production', 'HOST'))
 def deploy_production():
-    start_time = time.time();
+    start_time = time.time()
     print 'Building Docker image...'
     local('docker build -t %s .' % parser.get('general', 'DOCKER_IMAGE_NAME'))
     print 'Pushing image to Docker Hub...'
@@ -24,9 +24,10 @@ def deploy_production():
     run('if [ "$(docker ps -qa)" != "" ]; then docker rm --force `docker ps -qa`; fi')
     run('docker ps')
     print 'Removing dangling Docker images...'
-    run('if [ -z "$(docker images -f "dangling=true" -q)" ]; then echo "no images to remove";  else docker rmi $(docker images -f "dangling=true" -q); fi')
+    run('if [ -z "$(docker images -f "dangling=true" -q)" ]; then echo "no images to remove";  else docker rmi $(docker \
+images -f "dangling=true" -q); fi')
     print 'Pulling image on production host...'
-    run('docker pull %s ' % parser.get('general', 'DOCKER_IMAGE_NAME'));
+    run('docker pull %s ' % parser.get('general', 'DOCKER_IMAGE_NAME'))
     print 'Running image on production host...'
     run_command = '''docker run \
     -d \
@@ -38,6 +39,10 @@ def deploy_production():
     --env DATABASE_PASSWORD={DATABASE_PASSWORD} \
     --env DATABASE_NAME={DATABASE_NAME} \
     --env SECRET_KEY={SECRET_KEY} \
+    --env EMAIL_HOST={EMAIL_HOST} \
+    --env EMAIL_HOST_USER={EMAIL_HOST_USER} \
+    --env EMAIL_HOST_PASSWORD={EMAIL_HOST_PASSWORD} \
+    --env EMAIL_HOST_PORT={EMAIL_HOST_PORT} \
     {DOCKER_IMAGE_NAME}'''.format(
         ROOT_PASSWORD=parser.get('general', 'ROOT_PASSWORD'),
         DOCKER_IMAGE_NAME=parser.get('general', 'DOCKER_IMAGE_NAME'),
@@ -46,8 +51,12 @@ def deploy_production():
         DATABASE_PASSWORD=parser.get('production', 'DATABASE_PASSWORD'),
         DATABASE_NAME=parser.get('production', 'DATABASE_NAME'),
         SECRET_KEY=parser.get('production', 'SECRET_KEY'),
+        EMAIL_HOST=parser.get('production', 'EMAIL_HOST'),
+        EMAIL_HOST_USER=parser.get('production', 'EMAIL_HOST_USER'),
+        EMAIL_HOST_PASSWORD=parser.get('production', 'EMAIL_HOST_PASSWORD'),
+        EMAIL_HOST_PORT=parser.get('production', 'EMAIL_HOST_PORT')
     )
-    run(run_command);
+    run(run_command)
     print '-' * 80
     print parser.get('general', 'DOCKER_IMAGE_NAME') + ' successfully deployed to ' + parser.get('production', 'HOST')
     print("Deployment time: %s seconds" % (time.time() - start_time))
